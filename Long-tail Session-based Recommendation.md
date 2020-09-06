@@ -51,7 +51,7 @@ Session based는 이전부터 있던 개념. 이 논문은 Long-tail이 핵심 !
 
 ## Architecture ; TailNet
 
-![image-20200906211833963](C:%5CUsers%5Chaeyu%5CAppData%5CRoaming%5CTypora%5Ctypora-user-images%5Cimage-20200906211833963.png)
+![image-20200906211833963](fig/image-20200906211833963.png)
 
 
 
@@ -109,3 +109,4 @@ session based RS에서 사용하는 데이터셋들은 last item에 대한 depen
 #### R~head~ 와 R~tail~ 의 계산이 statistic에 기반한 것보다 Attention을 이용한 것의 성능이 더 좋다는 실험은 왜 없는가?
 
 논문에서 포인트를 둔 부분은 아님. adjustment가 효과가 있는가 없는가에 초점을 두었음.
+
