@@ -74,6 +74,20 @@ rating된 data에 대해서만 MSE를 측정하는 masked MSE(MMSE)를 Loss로 �
 
 rating 여부를 나타내는 mask vector m에 대해 `MSE(pred*m, input)` 을 구하면 된다.
 
+```python
+def MSEloss(inputs, targets, size_average=False):
+    """
+    inputs ; model의 output
+    targets ; input
+    """
+    mask = targets != 0 # 기존에 rating이 있었던 item만 표시하기 위한 mask vector를 생헝하고
+    num_ratings = torch.sum(mask.float())
+    criterion = nn.MSELoss(reduction='sum' if not size_average else 'mean')
+    
+    # MSE에 넣기 전 output에 mask를 elementwise하게 곱해줌으로써 0이었던 item에 대한 loss는 계산하지 않게 만든다 !
+    return criterion(inputs * mask.float(), targets), Variable(torch.Tensor([1.0])) if size_average else num_ratings
+```
+
 
 
 ### **Re feeding**
@@ -94,9 +108,131 @@ rating 여부를 나타내는 mask vector m에 대해 `MSE(pred*m, input)` 을 �
 
 
 
-몇 번 Re feeding할 것인지는 코드상에서 `aug_step`으로 구현되어있다.
+몇 번 Re feeding할 것인지는 코드상에서 `aug_step`으로 구현되어있다.  논문에서는 `aug_step = 1`
+
+```python
+if args.aug_step > 0:
+	for t in range(args.aug_step):
+        ################################ model의 output을 input으로 취급한다 !
+		inputs = Variable(outputs.data)
+        ################################
+		if args.noise_prob > 0.0:
+			inputs = dp(inputs)
+            
+        optimizer.zero_grad()
+        
+        outputs = rencoder(inputs)
+        loss, num_ratings = model.MSEloss(outputs, inputs)
+        loss = loss / num_ratings
+        
+        loss.backward()
+        optimizer.step()
+```
 
 
+
+### 코드로 보는 Architecture
+
+모델 구조가 복잡한 것은 아니기 때문에 코드도 쭉쭉 읽을 수 있다!
+
+```python
+class AutoEncoder(nn.Module):
+	def __init__(self, layer_sizes, nl_type='selu', is_constrained=True, dp_drop_prob=0.0, last_layer_activations=True):
+        
+        """
+        :param layer_sizes: [n, 1024, 512]를 입력하면 [n > 1024 > 512 > 1024 > n]
+        :param nl_type: (default 'selu') non linear activation f중에 어떤 것을 선택할지
+        :param is_constrained: (default: True) decoder의 weight도 따로 학습할 것인지(False) 혹은 encoder의 weight를 transpose해서 사용할 것인지(True)
+        :param dp_drop_prob: (default: 0.0) Dropout drop probability
+        :param last_layer_activations: (default: True) 마지막 layer에도 activation f를 사용할 것인지 ( output의 range를 고려해서 설정하자 ! )
+        """
+        
+       	super(AutoEncoder, self).__init__()
+        
+        self._dp_drop_prob = dp_drop_prob
+        self._last_layer_activations = last_layer_activations
+        if dp_drop_prob > 0:
+          	self.drop = nn.Dropout(dp_drop_prob)
+        self._last = len(layer_sizes) - 2
+        self._nl_type = nl_type
+        
+        # encoder size 설정
+        self.encode_w = nn.ParameterList(
+          	[nn.Parameter(torch.rand(layer_sizes[i + 1], layer_sizes[i])) for i in range(len(layer_sizes) - 1)])
+        
+        # xavier 초기화
+        for ind, w in enumerate(self.encode_w):
+          	weight_init.xavier_uniform_(w)
+
+        self.encode_b = nn.ParameterList(
+          [nn.Parameter(torch.zeros(layer_sizes[i + 1])) for i in range(len(layer_sizes) - 1)])
+
+        # decoder의 size는 입력을 거꾸로 하면 된다 !
+        reversed_enc_layers = list(reversed(layer_sizes))
+
+        self.is_constrained = is_constrained # True : decoder도 따로 학습, False : encoder에서 학습된 weight 그대로 사용
+        if not is_constrained:
+            self.decode_w = nn.ParameterList(
+                [nn.Parameter(torch.rand(reversed_enc_layers[i + 1], reversed_enc_layers[i])) for i in range(len(reversed_enc_layers) - 1)])
+            for ind, w in enumerate(self.decode_w):
+            	weight_init.xavier_uniform(w)
+                
+        self.decode_b = nn.ParameterList(
+          [nn.Parameter(torch.zeros(reversed_enc_layers[i + 1])) for i in range(len(reversed_enc_layers) - 1)])
+
+        print("******************************")
+        print("******************************")
+        
+        print(layer_sizes)
+        print("Dropout drop probability: {}".format(self._dp_drop_prob))
+        
+        print("Encoder pass:")
+        for ind, w in enumerate(self.encode_w):
+          	print(w.data.size())
+          	print(self.encode_b[ind].size())
+            
+        print("Decoder pass:")
+        if self.is_constrained:
+            print('Decoder is constrained')
+          	for ind, w in enumerate(list(reversed(self.encode_w))):
+           		print(w.transpose(0, 1).size())
+            	print(self.decode_b[ind].size())
+        else:
+            for ind, w in enumerate(self.decode_w):
+            	print(w.data.size())
+            	print(self.decode_b[ind].size())
+                
+        print("******************************")
+        print("******************************")
+
+
+  def encode(self, x):
+      for ind, w in enumerate(self.encode_w):
+          x = activation(input=F.linear(input=x, weight=w, bias=self.encode_b[ind]), kind=self._nl_type)
+    
+      # encode의 output에만 drop out을 적용한다.
+      if self._dp_drop_prob > 0: # apply dropout only on code layer
+          x = self.drop(x)
+      return x
+
+  def decode(self, z):
+    
+      if self.is_constrained:
+          for ind, w in enumerate(list(reversed(self.encode_w))): # constrained autoencode re-uses weights from encoder
+              z = activation(input=F.linear(input=z, weight=w.transpose(0, 1), bias=self.decode_b[ind]),
+                     # last layer or decoder should not apply non linearities
+                     kind=self._nl_type if ind!=self._last or self._last_layer_activations else 'none')
+
+      else:
+          for ind, w in enumerate(self.decode_w):
+              z = activation(input=F.linear(input=z, weight=w, bias=self.decode_b[ind]),
+                     # last layer or decoder should not apply non linearities
+                     kind=self._nl_type if ind!=self._last or self._last_layer_activations else 'none')
+      return z
+
+  def forward(self, x):
+      return self.decode(self.encode(x))
+```
 
 
 
@@ -135,8 +271,6 @@ drop prob와 epoch에 따라 RMSE를 그린 결과이다.
    0.005의 learning rate를 사용하면서 re feeding을 하지 않으면 모델은 발산하기 시작한다 !
 
 3. RMSE가 0.9167에서 0.9100으로 낮아졌으며, 이 중 가장 best인 모델을 이용하여 계산한 test RMSE는 0.9099였다.
-
-
 
 
 
