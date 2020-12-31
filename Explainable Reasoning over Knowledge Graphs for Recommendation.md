@@ -96,8 +96,6 @@ ex ) 작곡가 - 노래 - 작곡가 (공동 작곡) , 가수 - 노래 - 작곡�
 
 
 
-
-
 ![image-20201004164746819](fig/image-20201004164746819.png)
 
 
@@ -192,7 +190,7 @@ Castle on the Hill로 가는 path가 부자연스럽다면 Alice의 Castle-에 �
 
 
 
-weighted pooling
+### weighted pooling
 
 같은 entity 사이에 여러개의 path가 존재하고 여러개의 vector가 나온다.
 
@@ -208,9 +206,7 @@ weighted pooling
 
 score 1부터 k까지가 있으면 얘네를 어떤 수 gamma로 나누고 exp sum을 한 후 log를 씌워준다.
 
-=> gamma가 0에 가까울 수록 max pooling 즉 큰 값에 더 가중치를 준다., 커질 수록 avg pooling
-
-
+=> gamma가 0에 가까울 수록 max pooling 즉 큰 값에 더 가중치를 준다. 커질 수록 avg pooling
 
 
 
@@ -248,3 +244,28 @@ LSTM을 통해 이 sequence의 의미와 얼마나 그럴듯한가?를 계산해
 
 Graph Embedding based 방법론도 있었다. 
 
+
+
+---
+
+
+
+### reasoning의 의미는?
+
+shape of you를 들은 사람에게 castle on the hill을 추천하는 것 자체는 다른 모델도 할 수 있음.
+
+그러나 Alice가 castle on the hill을 선호하는 이유가 에드시런 때문이라는 사실은 KPRN만이 추론 가능함.
+
+Alice가 노래를 듣는 패턴이 다른 item에 대해서도 다 가수에 영향을 많이 받았다면, 앞으로의 추천에서도 가수를 중요하게 고려해야할 것.
+
+이것 때문에 reasoning을 keyword로 둔 것이 아닐까 ...
+
+
+
+* 밤편지를 선호한 이유가 가수 때문인지, 작곡가 때문인지를 모두 고려하고 이 과정을 통해서 user가 어떤 attribute를 주로 선호하는지(같은 가수를 찾아 듣는 경향 or 같은 작곡가를 찾아 듣는 경향)에 대한 정보를 찾을 수 있기 때문에 더 잘 추론할 수 있다.
+
+* user interaction을 함께 고려하여 path를 찾기 때문에 CF 기반의 추론 역시 가능하다.
+
+
+
+### 한번에 하나밖에 추론을 못하는데 ndcg를 어떻게 계산했다는건가?
