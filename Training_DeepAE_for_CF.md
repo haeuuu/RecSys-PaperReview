@@ -250,7 +250,7 @@ RELU, Tanh, ELU, leaky RELU 등과 SELU를 비교하였다.
 
 각 batch마다 RMSE를 그려본 결과 SELU가 가장 준수한 성능을 보였다. 
 
-<img src="../fig/image-20201109232544161.png" alt="image-20201109232544161" style="zoom:67%;" />
+![image-20201109232544161](fig/image-20201109232544161.png)
 
 
 
@@ -262,7 +262,7 @@ drop prob을 낮게 설정했을 때 보다 0.8로 높게 설정했을 때가 �
 
 drop prob와 epoch에 따라 RMSE를 그린 결과이다.
 
-<img src="../fig/image-20201109232609223.png" alt="image-20201109232609223" style="zoom:67%;" />
+![image-20201109232609223](fig/image-20201109232609223.png)
 
 ### 3 ) Dense re feeding의 효과
 
