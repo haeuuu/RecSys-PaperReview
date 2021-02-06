@@ -42,7 +42,7 @@ rating prediction task를 위한 모델. 넷플릭스 데이터에서 SOTA를 �
 
 **Autoencoder 빠르게 훑고 가기**
 
-![image-20201109222114873](../fig/image-20201109222114873.png)
+![image-20201109222114873](fig/image-20201109222114873.png)
 
 * input과 최대한 비슷한 output을 내도록 학습한다. 즉 output의 target은 input이 된다!
 * encoder(x) : R^n^ to R^d^ , decoder(x) : R^d^ to R^n^ 
